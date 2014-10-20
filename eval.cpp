@@ -1,15 +1,15 @@
-#include <iostream>
-#include <iomanip>
-#include <algorithm>
-#include <numeric>
-#include <cmath>
-#include <limits>
 #include "calculate.hpp"
 
-using namespace std;
+#include <cmath>
 
-int main()
-{
+#include <algorithm>
+#include <iostream>
+#include <limits>
+#include <numeric>
+#include <sstream>
+#include <string>
+
+void config_eval() {
 	opers.insert({"+", oper_t{false, 1, false}});
 	opers.insert({"-", oper_t{false, 1, false}});
 	opers.insert({"*", oper_t{false, 2, false}});
@@ -42,7 +42,7 @@ int main()
 	})});
 	funcs.insert({"/", func_args(2, [](args_t v)
 	{
-		return v[0] / v[1];
+		return v[1] != 0 ? v[0] / v[1] : std::numeric_limits<double>::quiet_NaN();
 	})});
 	funcs.insert({"%", func_args(2, [](args_t v)
 	{
@@ -132,35 +132,40 @@ int main()
 	})});
 	funcs.insert({"pi", func_constant(acos(-1.L))});
 	funcs.insert({"e", func_constant(exp(1.L))});
+	funcs.insert({"nan", func_constant(NAN)});
 	funcs.insert({"_", func_constant(NAN)});
+}
 
-	string exp;
-	while (cout << "> ", getline(cin, exp))
+double eval( const std::string &expr, std::string *err ) {
+	try
 	{
-		try
-		{
-			auto postfix = infix2postfix(exp);
-			/*for (auto &tok : postfix)
-				cout << tok.first << "/" << tok.second << " ";
-			cout << endl;*/
-			auto value = evalpostfix(postfix);
-			cout << setprecision(numeric_limits<decltype(value)>::digits10) << value << endl;
-			funcs.find("_")->second = func_constant(value);
-		}
-		catch (parse_error &e)
-		{
-			cerr << string(e.index() + 2, ' ') << "^" << endl;
-			cerr << e.what() << " at " << e.index() << endl;
-		}
-		catch (runtime_error &e)
-		{
-			cerr << e.what() << endl;
-		}
-		catch (exception &e)
-		{
-			cerr << "Internal error: " << e.what() << endl;
-		}
-		cout << endl;
+		auto postfix = infix2postfix(expr);
+		/*for (auto &tok : postfix)
+			cout << tok.first << "/" << tok.second << " ";
+		cout << std::endl;*/
+		auto value = evalpostfix(postfix);
+		funcs.find("_")->second = func_constant(value);
+		if(err) err->clear();
+		return value;
 	}
-	return 0;
+	catch (parse_error &e)
+	{
+		std::stringstream cerr;
+		cerr << std::string(e.index() + 2, ' ') << "^" << std::endl;
+		cerr << e.what() << " at " << e.index() << std::endl;
+		if( err ) *err = cerr.str();
+	}
+	catch (std::runtime_error &e)
+	{
+		std::stringstream cerr;
+		cerr << e.what() << std::endl;
+		if( err ) *err = cerr.str();
+	}
+	catch (std::exception &e)
+	{
+		std::stringstream cerr;
+		cerr << "Internal error: " << e.what() << std::endl;
+		if( err ) *err = cerr.str();
+	}
+	return std::numeric_limits<double>::quiet_NaN();
 }
