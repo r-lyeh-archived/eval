@@ -137,6 +137,11 @@ void config_eval() {
 }
 
 double eval( const std::string &expr, std::string *err ) {
+	static bool initialized = false;
+	if( !initialized ) {
+		initialized = true;
+		config_eval();
+	}
 	try
 	{
 		auto postfix = infix2postfix(expr);
