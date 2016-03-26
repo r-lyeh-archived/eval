@@ -18,5 +18,5 @@ int main() {
 ```
 
 ### Changelog
+- v1.0.1 (2016/03/26): Add simple support for assignment and variables
 - v1.0.0 (2016/02/20): Extra math stuff; Header-only now; Initial SemVer adherence;
-

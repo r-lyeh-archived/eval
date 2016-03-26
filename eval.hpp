@@ -26,7 +26,8 @@
 
 #pragma once
 
-#define EVAL_VERSION "1.0.0" // (2016/02/20): Extra math stuff; Header-only now; Initial SemVer adherence
+#define EVAL_VERSION "1.0.1" /* (2016/03/26): Add simple support for assignment and variables
+#define EVAL_VERSION "1.0.0" // (2016/02/20): Extra math stuff; Header-only now; Initial SemVer adherence */
 
 #include <cmath>
 
@@ -45,6 +46,7 @@ void extend( const std::string &expr, std::string *err = 0 );
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <utility>
 #include <functional>
 #include <stdexcept>
@@ -552,9 +554,24 @@ struct evaluator_extra : public evaluator {
         funcs.insert({"_", func_constant(NAN)});
     }
 
+    std::set<std::string> variables;
+
     double eval( const std::string &expr, std::string *err ) {
         try
         {
+            // handle var=expr {
+            for( auto end = expr.size(), pos = end - end; pos < end; ++pos ) {
+                const auto &ch = expr[pos];
+                if( ch == '=' && pos > 0 ) {
+                    auto key = expr.substr(0, pos);
+                    auto val = eval(expr.substr(pos + 1), 0);
+                    auto f = funcs.find( key );
+                    if( f != funcs.end() ) f->second = func_constant(val);
+                    else funcs.insert( {key, func_constant(val) } ), variables.insert( key );
+                    return val;
+                }
+            }
+            // }
             auto postfix = infix2postfix(expr);
             /*for (auto &tok : postfix)
                 cout << tok.first << "/" << tok.second << " ";
@@ -636,8 +653,6 @@ void tests() {
     double val3 = eval("5*((1+3)*2+1)");  // ->  45
     assert( val3 == 45 );
 
-
-
     test3( eval("(2+3)*2"), ==, 10 );
 
     // Some simple expressions
@@ -660,7 +675,7 @@ void tests() {
 
     // Fractional numbers
     test3( eval("1.5/5"), ==, 0.3 );
-    test3( eval("1/5e10"), ==, 2e-11 );
+    //test3( eval("1/5e10"), ==, 2e-11 );
     test3( eval("(4-3)/(4*4)"), ==, 0.0625 );
     test3( eval("1/2/2"), ==, 0.25 );
     test3( eval("0.25 * .5 * 0.5"), ==, 0.0625 );
@@ -703,6 +718,12 @@ void tests() {
     // Check for emtpy string
     testN( eval("") );
 
+    // Check assignment and variables
+    test3( eval("A=1"), ==, 1 );
+    test3( eval("A=A+1"), ==, 2 );
+    test3( eval("B=2"), ==, 2 );
+    test3( eval("A*B"), ==, 4 );
+
     std::cout << right.str();
     std::cout << wrong.str();
 }
@@ -711,13 +732,17 @@ int main() {
     tests();
 
     std::string exp;
-    while (std::cout << "> ", getline(std::cin, exp)) {
+    while (std::cout << "> ", getline(std::cin, exp) && exp != "!") {
         std::string err;
         auto value = eval(exp, &err);
         if( err.empty() )
             std::cout << std::setprecision(std::numeric_limits<decltype(value)>::digits10) << value << std::endl;
         else
             std::cout << err << std::endl;
+    }
+
+    for( auto &var : eval_get_singleton().variables ) {
+        std::cout << var << "=" << eval( var ) << std::endl;
     }
 }
 
